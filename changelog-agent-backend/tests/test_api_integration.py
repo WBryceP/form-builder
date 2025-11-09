@@ -47,9 +47,13 @@ def test_health_check(client):
 @pytest.mark.integration
 def test_add_single_option(client):
     """Test adding a single option to an existing form field."""
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    
     request_data = {
         "message": "Add a Paris option to the travel form destination field",
-        "session_id": f"test_add_single_{int(time.time() * 1000)}"
+        "session_id": session_id
     }
     
     response = client.post("/api/v1/chat", json=request_data)
@@ -74,9 +78,13 @@ def test_add_single_option(client):
 @pytest.mark.integration
 def test_add_and_update_options(client):
     """Test adding and updating options in the same request."""
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    
     request_data = {
         "message": "update the dropdown options for the destination field in the travel request form: 1. add a paris option, 2. change tokyo to milan",
-        "session_id": f"test_add_update_{int(time.time() * 1000)}"
+        "session_id": session_id
     }
     
     response = client.post("/api/v1/chat", json=request_data)
@@ -104,9 +112,13 @@ def test_add_and_update_options(client):
 @pytest.mark.integration
 def test_create_conditional_logic(client):
     """Test creating conditional form logic with fields and rules."""
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    
     request_data = {
         "message": "I want the employment-demo form to require university_name when employment_status is Student. University name should be a text field",
-        "session_id": f"test_conditional_{int(time.time() * 1000)}"
+        "session_id": session_id
     }
     
     response = client.post("/api/v1/chat", json=request_data)
@@ -139,9 +151,13 @@ def test_create_conditional_logic(client):
 @pytest.mark.integration
 def test_create_new_form(client):
     """Test creating a complete new form from scratch."""
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    
     request_data = {
         "message": "I want to create a new form to allow employees to request a new snack. There should be a category field (ice cream/beverage/fruit/chips/gum), and name of the item (text).",
-        "session_id": f"test_new_form_{int(time.time() * 1000)}"
+        "session_id": session_id
     }
     
     response = client.post("/api/v1/chat", json=request_data)
@@ -174,9 +190,13 @@ def test_create_new_form(client):
 @pytest.mark.integration
 def test_delete_form(client):
     """Test deleting a form."""
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    
     request_data = {
         "message": "Delete the Software Access Request form",
-        "session_id": f"test_delete_{int(time.time() * 1000)}"
+        "session_id": session_id
     }
     
     response = client.post("/api/v1/chat", json=request_data)
@@ -200,9 +220,13 @@ def test_delete_form(client):
 @pytest.mark.integration
 def test_update_form_title(client):
     """Test updating a form's title."""
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    
     request_data = {
         "message": "Update the title of the contact form to Contact Us",
-        "session_id": f"test_update_{int(time.time() * 1000)}"
+        "session_id": session_id
     }
     
     response = client.post("/api/v1/chat", json=request_data)
@@ -227,9 +251,13 @@ def test_update_form_title(client):
 @pytest.mark.integration
 def test_vague_request_clarification(client):
     """Test that vague requests trigger clarification."""
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    
     request_data = {
         "message": "Add an option",
-        "session_id": f"test_vague_{int(time.time() * 1000)}"
+        "session_id": session_id
     }
     
     response = client.post("/api/v1/chat", json=request_data)
@@ -246,9 +274,13 @@ def test_vague_request_clarification(client):
 @pytest.mark.integration
 def test_ambiguous_request_clarification(client):
     """Test that ambiguous requests trigger clarification."""
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    
     request_data = {
         "message": "Make some changes",
-        "session_id": f"test_ambiguous_{int(time.time() * 1000)}"
+        "session_id": session_id
     }
     
     response = client.post("/api/v1/chat", json=request_data)
@@ -262,9 +294,13 @@ def test_ambiguous_request_clarification(client):
 @pytest.mark.integration
 def test_complex_multi_table_operation(client):
     """Test a complex operation involving multiple tables and operations."""
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    
     request_data = {
         "message": "For the travel form: add Barcelona and Rome options to destination, remove London, and change the form title to International Travel Request",
-        "session_id": f"test_complex_{int(time.time() * 1000)}"
+        "session_id": session_id
     }
     
     response = client.post("/api/v1/chat", json=request_data)
@@ -292,7 +328,10 @@ def test_complex_multi_table_operation(client):
 @pytest.mark.integration
 def test_trace_endpoint(client):
     """Test that trace endpoint returns trace information for a session."""
-    session_id = f"test_trace_session_{int(time.time() * 1000)}"
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    
     chat_request = {
         "message": "What forms are in the database?",
         "session_id": session_id
@@ -324,7 +363,9 @@ def test_trace_endpoint_not_found(client):
 @pytest.mark.integration
 def test_multi_turn_conversation(client):
     """Test multi-turn conversation with follow-up questions."""
-    session_id = f"test_multi_turn_{int(time.time() * 1000)}"
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
     
     first_request = {
         "message": "I want to add a field",
@@ -349,3 +390,91 @@ def test_multi_turn_conversation(client):
     response_json = json.loads(second_data["response"])
     
     assert response_json["type"] in ["changelog", "clarification"]
+
+
+@pytest.mark.integration
+def test_conversation_management_endpoints(client):
+    """Test conversation management endpoints."""
+    # Test create conversation
+    create_response = client.post("/api/v1/conversations")
+    assert create_response.status_code == 200
+    
+    create_data = create_response.json()
+    assert "session_id" in create_data
+    assert "title" in create_data
+    assert "created_at" in create_data
+    session_id = create_data["session_id"]
+    
+    # Test list conversations (should have 1)
+    list_response = client.get("/api/v1/conversations")
+    assert list_response.status_code == 200
+    
+    list_data = list_response.json()
+    assert "conversations" in list_data
+    assert "total_count" in list_data
+    assert list_data["total_count"] >= 1
+    
+    found_conversation = None
+    for conv in list_data["conversations"]:
+        if conv["session_id"] == session_id:
+            found_conversation = conv
+            break
+    
+    assert found_conversation is not None
+    assert found_conversation["message_count"] == 0
+    
+    # Send a message to update conversation metadata
+    chat_request = {
+        "message": "Add a test option to travel form",
+        "session_id": session_id
+    }
+    chat_response = client.post("/api/v1/chat", json=chat_request)
+    assert chat_response.status_code == 200
+    
+    # Test get conversation messages
+    messages_response = client.get(f"/api/v1/conversations/{session_id}/messages")
+    assert messages_response.status_code == 200
+    
+    messages_data = messages_response.json()
+    assert "messages" in messages_data
+    assert "total_count" in messages_data
+    assert messages_data["session_id"] == session_id
+    assert messages_data["total_count"] >= 1
+    
+    # Check message structure
+    user_message = messages_data["messages"][0]
+    assert user_message["role"] == "user"
+    assert user_message["content"] == "Add a test option to travel form"
+    assert "timestamp" in user_message
+    
+    # Test delete conversation
+    delete_response = client.delete(f"/api/v1/conversations/{session_id}")
+    assert delete_response.status_code == 200
+    
+    delete_data = delete_response.json()
+    assert delete_data["success"] is True
+    assert delete_data["session_id"] == session_id
+    
+    # Verify conversation is deleted
+    messages_after_delete = client.get(f"/api/v1/conversations/{session_id}/messages")
+    assert messages_after_delete.status_code == 404
+
+
+@pytest.mark.integration
+def test_conversation_messages_not_found(client):
+    """Test getting messages for non-existent conversation returns 404."""
+    response = client.get("/api/v1/conversations/nonexistent_session_xyz/messages")
+    assert response.status_code == 404
+    
+    detail = response.json()["detail"].lower()
+    assert "not found" in detail
+
+
+@pytest.mark.integration
+def test_delete_nonexistent_conversation(client):
+    """Test deleting non-existent conversation returns 404."""
+    response = client.delete("/api/v1/conversations/nonexistent_session_xyz")
+    assert response.status_code == 404
+    
+    detail = response.json()["detail"].lower()
+    assert "not found" in detail

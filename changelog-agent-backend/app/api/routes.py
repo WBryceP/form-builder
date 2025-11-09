@@ -1,5 +1,9 @@
 from fastapi import APIRouter, HTTPException
-from app.models.schemas import ChatRequest, ChatResponse, TraceResponse, ToolCallsResponse, ToolCallData
+from app.models.schemas import (
+    ChatRequest, ChatResponse, TraceResponse, ToolCallsResponse, ToolCallData,
+    CreateConversationResponse, ListConversationsResponse, ConversationMessagesResponse,
+    DeleteConversationResponse, ConversationMetadata, Message
+)
 from app.services.agent_service import AgentService
 
 router = APIRouter()
@@ -96,3 +100,72 @@ async def get_tool_calls_by_trace(trace_id: str):
         tool_calls=tool_calls,
         total_count=len(tool_calls)
     )
+
+
+@router.get("/conversations", response_model=ListConversationsResponse)
+async def list_conversations():
+    """
+    List all conversations ordered by most recent activity.
+    """
+    try:
+        conversations = agent_service.conversation_service.list_conversations()
+        return ListConversationsResponse(
+            conversations=[ConversationMetadata(**conv) for conv in conversations],
+            total_count=len(conversations)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/conversations", response_model=CreateConversationResponse)
+async def create_conversation():
+    """
+    Create a new conversation. Returns session_id for use in chat endpoint.
+    """
+    try:
+        result = agent_service.conversation_service.create_conversation()
+        return CreateConversationResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversations/{session_id}/messages", response_model=ConversationMessagesResponse)
+async def get_conversation_messages(session_id: str):
+    """
+    Get all messages in a conversation.
+    """
+    conversation = agent_service.conversation_service.get_conversation(session_id)
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Conversation not found: {session_id}"
+        )
+    
+    try:
+        messages = agent_service.conversation_service.get_conversation_messages(session_id)
+        return ConversationMessagesResponse(
+            session_id=session_id,
+            messages=[Message(**msg) for msg in messages],
+            total_count=len(messages)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/conversations/{session_id}", response_model=DeleteConversationResponse)
+async def delete_conversation(session_id: str):
+    """
+    Delete a conversation and all associated data.
+    """
+    try:
+        success = agent_service.conversation_service.delete_conversation(session_id)
+        if not success:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Conversation not found: {session_id}"
+            )
+        return DeleteConversationResponse(success=True, session_id=session_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

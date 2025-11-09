@@ -61,3 +61,39 @@ class ToolCallsResponse(BaseModel):
     trace_id: str = Field(..., description="Trace ID")
     tool_calls: list[ToolCallData] = Field(..., description="List of tool calls in this trace")
     total_count: int = Field(..., description="Total number of tool calls")
+
+
+class ConversationMetadata(BaseModel):
+    session_id: str = Field(..., description="Unique session/conversation ID")
+    title: str = Field(..., description="Conversation title")
+    created_at: str = Field(..., description="ISO timestamp when conversation was created")
+    updated_at: str = Field(..., description="ISO timestamp when conversation was last updated")
+    message_count: int = Field(default=0, description="Number of messages in conversation")
+
+
+class CreateConversationResponse(BaseModel):
+    session_id: str = Field(..., description="Unique session/conversation ID")
+    title: str = Field(..., description="Conversation title")
+    created_at: str = Field(..., description="ISO timestamp when conversation was created")
+
+
+class ListConversationsResponse(BaseModel):
+    conversations: list[ConversationMetadata] = Field(..., description="List of all conversations")
+    total_count: int = Field(..., description="Total number of conversations")
+
+
+class Message(BaseModel):
+    role: Literal["user", "assistant"] = Field(..., description="Message sender role")
+    content: str = Field(..., description="Message content")
+    timestamp: str = Field(..., description="ISO timestamp when message was sent")
+
+
+class ConversationMessagesResponse(BaseModel):
+    session_id: str = Field(..., description="Session/conversation ID")
+    messages: list[Message] = Field(..., description="List of messages in conversation")
+    total_count: int = Field(..., description="Total number of messages")
+
+
+class DeleteConversationResponse(BaseModel):
+    success: bool = Field(..., description="Whether deletion was successful")
+    session_id: str = Field(..., description="Deleted session ID")

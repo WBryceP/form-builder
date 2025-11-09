@@ -3,21 +3,21 @@ from agents.tracing import add_trace_processor
 from app.agents.changelog_agent import form_agent
 from app.agents.context import FormContext
 from app.tracing.tool_call_processor import ToolCallProcessor
+from app.services.conversation_service import ConversationService
 import os
 import json
 
 
 class AgentService:
     def __init__(self):
-        # Store sessions in data directory
         self.sessions_db = os.getenv("SESSIONS_DB", "/app/data/sessions.db")
         self.db_path = os.getenv("DATABASE_PATH", "/app/data/forms.sqlite")
-        # Map session_id to trace_id
         self.session_traces = {}
         
-        # Add our custom tool call processor
         self.tool_call_processor = ToolCallProcessor()
         add_trace_processor(self.tool_call_processor)
+        
+        self.conversation_service = ConversationService(self.sessions_db)
     
     async def chat(
         self,
@@ -41,7 +41,13 @@ class AgentService:
         
         trace_id = self.session_traces[session_id]
         
-        # Create context with database path
+        existing_conv = self.conversation_service.get_conversation(session_id)
+        if not existing_conv:
+            title = user_message[:50] if len(user_message) <= 50 else user_message[:47] + "..."
+            self.conversation_service.ensure_conversation_exists(session_id, title)
+        else:
+            self.conversation_service.update_conversation_metadata(session_id)
+        
         context = FormContext(db_path=self.db_path)
         
         with trace(f"Conversation {session_id}", trace_id=trace_id):
@@ -53,7 +59,6 @@ class AgentService:
                 max_turns=25
             )
         
-        # Convert structured output to JSON string
         if hasattr(result.final_output, 'model_dump'):
             return json.dumps(result.final_output.model_dump())
         return result.final_output

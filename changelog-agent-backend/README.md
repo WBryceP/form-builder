@@ -230,7 +230,7 @@ python3 -m pytest tests/ --cov=app --cov-report=html
 - Update operations (validation, nonexistent IDs, JSON errors)
 - Delete operations (validation, rollback verification)
 
-**Integration Tests (13 tests):**
+**Integration Tests (16 tests):**
 
 *Changelog Generation:*
 - ✅ Add single option to form
@@ -250,6 +250,8 @@ python3 -m pytest tests/ --cov=app --cov-report=html
 - ✅ Chat endpoint with session management
 - ✅ Trace endpoint for debugging
 - ✅ Multi-turn conversations
+- ✅ Conversation management (create, list, get messages, delete)
+- ✅ Error handling (404s for non-existent conversations)
 
 *Response Validation:*
 - Correct response type (changelog vs clarification)
@@ -266,10 +268,11 @@ All tests verify that the database remains unchanged:
 - Original values are preserved
 - Transactions are properly rolled back
 
-**Structured Output Guardrails (10 tests):**
-- ✅ Resists prompt injection attacks
-- ✅ Enforces output schema compliance
-- ✅ Validates legitimate requests still work
+**Structured Output Guardrails (4 tests):**
+- ✅ Resists instruction override attempts
+- ✅ Rejects custom JSON schema formats
+- ✅ Validates legitimate clarifications still work
+- ✅ Validates legitimate changelogs still work
 
 ### Test Performance
 - Unit tests: ~1 second total
@@ -279,7 +282,80 @@ All tests verify that the database remains unchanged:
 
 ## API Reference
 
-### POST /api/v1/chat
+### Conversation Management
+
+#### POST /api/v1/conversations
+
+Create a new conversation. Returns `session_id` for use in all other endpoints.
+
+**Response:**
+```json
+{
+  "session_id": "uuid",
+  "title": "New Conversation",
+  "created_at": "ISO timestamp"
+}
+```
+
+#### GET /api/v1/conversations
+
+List all conversations ordered by most recent activity.
+
+**Response:**
+```json
+{
+  "conversations": [
+    {
+      "session_id": "uuid",
+      "title": "Add Paris to travel form",
+      "created_at": "ISO timestamp",
+      "updated_at": "ISO timestamp",
+      "message_count": 3
+    }
+  ],
+  "total_count": 1
+}
+```
+
+#### GET /api/v1/conversations/{session_id}/messages
+
+Get all messages in a conversation.
+
+**Response:**
+```json
+{
+  "session_id": "uuid",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Add Paris option to travel form",
+      "timestamp": "ISO timestamp"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"changelog\",\"changes\":{...}}",
+      "timestamp": "ISO timestamp"
+    }
+  ],
+  "total_count": 2
+}
+```
+
+#### DELETE /api/v1/conversations/{session_id}
+
+Delete a conversation and all associated data.
+
+**Response:**
+```json
+{
+  "success": true,
+  "session_id": "uuid"
+}
+```
+
+### Chat & Agent
+
+#### POST /api/v1/chat
 
 Send a message to the agent.
 
@@ -298,7 +374,9 @@ Send a message to the agent.
 }
 ```
 
-### GET /api/v1/traces/{session_id}
+### Debugging & Monitoring
+
+#### GET /api/v1/traces/{session_id}
 
 Get the OpenAI trace ID for debugging a conversation.
 
@@ -311,9 +389,9 @@ Get the OpenAI trace ID for debugging a conversation.
 }
 ```
 
-### GET /api/v1/tool-calls/session/{session_id}
+#### GET /api/v1/tool-calls/session/{session_id}
 
-Get all tool calls made during a conversation session. Useful for debugging and understanding agent behavior.
+Get all tool calls made during a conversation session.
 
 **Response:**
 ```json
@@ -335,7 +413,7 @@ Get all tool calls made during a conversation session. Useful for debugging and 
 }
 ```
 
-### GET /api/v1/health
+#### GET /api/v1/health
 
 Health check endpoint.
 
