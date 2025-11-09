@@ -1,0 +1,347 @@
+import pytest
+import json
+import httpx
+from typing import Dict, Any
+
+
+BASE_URL = "http://localhost:8000"
+
+
+@pytest.fixture
+def client():
+    """Create an HTTP client for testing."""
+    return httpx.Client(base_url=BASE_URL, timeout=120.0)
+
+
+def assert_changelog_response(response_data: Dict[str, Any], expected_tables: list[str]):
+    """Helper to validate changelog response structure."""
+    response_json = json.loads(response_data["response"])
+    
+    assert response_json["type"] == "changelog", "Expected changelog type"
+    assert "changes" in response_json, "Missing changes field"
+    
+    changes = response_json["changes"]
+    for table in expected_tables:
+        assert table in changes, f"Expected table {table} in changes"
+
+
+def assert_clarification_response(response_data: Dict[str, Any]):
+    """Helper to validate clarification response structure."""
+    response_json = json.loads(response_data["response"])
+    
+    assert response_json["type"] == "clarification", "Expected clarification type"
+    assert "clarification" in response_json, "Missing clarification field"
+    assert len(response_json["clarification"]) > 0, "Clarification should not be empty"
+
+
+@pytest.mark.integration
+def test_health_check(client):
+    """Test health check endpoint."""
+    response = client.get("/api/v1/health")
+    
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
+
+
+@pytest.mark.integration
+def test_add_single_option(client):
+    """Test adding a single option to an existing form field."""
+    request_data = {
+        "message": "Add a Paris option to the travel form destination field",
+        "session_id": "test_add_single"
+    }
+    
+    response = client.post("/api/v1/chat", json=request_data)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert_changelog_response(data, ["option_items"])
+    
+    changes = json.loads(data["response"])["changes"]
+    option_items = changes["option_items"]
+    
+    assert "insert" in option_items
+    assert len(option_items["insert"]) == 1
+    
+    inserted = option_items["insert"][0]
+    assert inserted["id"].startswith("$")
+    assert inserted["value"] == "Paris"
+    assert inserted["label"] == "Paris"
+
+
+@pytest.mark.integration
+def test_add_and_update_options(client):
+    """Test adding and updating options in the same request."""
+    request_data = {
+        "message": "update the dropdown options for the destination field in the travel request form: 1. add a paris option, 2. change tokyo to milan",
+        "session_id": "test_add_update"
+    }
+    
+    response = client.post("/api/v1/chat", json=request_data)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert_changelog_response(data, ["option_items"])
+    
+    changes = json.loads(data["response"])["changes"]
+    option_items = changes["option_items"]
+    
+    assert "insert" in option_items
+    assert "update" in option_items
+    
+    assert len(option_items["insert"]) == 1
+    assert option_items["insert"][0]["value"] == "Paris"
+    
+    assert len(option_items["update"]) == 1
+    assert option_items["update"][0]["value"] == "Milan"
+    assert "id" in option_items["update"][0]
+    assert not option_items["update"][0]["id"].startswith("$")
+
+
+@pytest.mark.integration
+def test_create_conditional_logic(client):
+    """Test creating conditional form logic with fields and rules."""
+    request_data = {
+        "message": "I want the employment-demo form to require university_name when employment_status is Student. University name should be a text field",
+        "session_id": "test_conditional"
+    }
+    
+    response = client.post("/api/v1/chat", json=request_data)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    expected_tables = ["form_fields", "logic_rules", "logic_conditions", "logic_actions"]
+    assert_changelog_response(data, expected_tables)
+    
+    changes = json.loads(data["response"])["changes"]
+    
+    assert len(changes["form_fields"]["insert"]) >= 1
+    field = changes["form_fields"]["insert"][0]
+    assert field["code"] == "university_name"
+    assert field["id"].startswith("$")
+    
+    assert len(changes["logic_rules"]["insert"]) >= 1
+    rule = changes["logic_rules"]["insert"][0]
+    assert rule["id"].startswith("$")
+    
+    assert len(changes["logic_actions"]["insert"]) >= 1
+    has_require_action = any(
+        action["action"] == "require" 
+        for action in changes["logic_actions"]["insert"]
+    )
+    assert has_require_action, "Should have a require action"
+
+
+@pytest.mark.integration
+def test_create_new_form(client):
+    """Test creating a complete new form from scratch."""
+    request_data = {
+        "message": "I want to create a new form to allow employees to request a new snack. There should be a category field (ice cream/beverage/fruit/chips/gum), and name of the item (text).",
+        "session_id": "test_new_form"
+    }
+    
+    response = client.post("/api/v1/chat", json=request_data)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    expected_tables = ["forms", "form_pages", "form_fields", "option_sets", "option_items"]
+    assert_changelog_response(data, expected_tables)
+    
+    changes = json.loads(data["response"])["changes"]
+    
+    assert len(changes["forms"]["insert"]) == 1
+    form = changes["forms"]["insert"][0]
+    assert form["id"].startswith("$")
+    assert "snack" in form["title"].lower() or "snack" in form["slug"].lower()
+    
+    assert len(changes["form_fields"]["insert"]) >= 2
+    field_codes = [f["code"] for f in changes["form_fields"]["insert"]]
+    assert "category" in field_codes or any("cat" in code for code in field_codes)
+    
+    assert len(changes["option_items"]["insert"]) == 5
+    option_values = [opt["value"] for opt in changes["option_items"]["insert"]]
+    expected_options = ["Ice Cream", "Beverage", "Fruit", "Chips", "Gum"]
+    for expected in expected_options:
+        assert any(expected.lower() in val.lower() for val in option_values)
+
+
+@pytest.mark.integration
+def test_delete_form(client):
+    """Test deleting a form."""
+    request_data = {
+        "message": "Delete the Software Access Request form",
+        "session_id": "test_delete"
+    }
+    
+    response = client.post("/api/v1/chat", json=request_data)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert_changelog_response(data, ["forms"])
+    
+    changes = json.loads(data["response"])["changes"]
+    forms = changes["forms"]
+    
+    assert "delete" in forms
+    assert len(forms["delete"]) == 1
+    
+    deleted = forms["delete"][0]
+    assert "id" in deleted
+    assert not deleted["id"].startswith("$")
+
+
+@pytest.mark.integration
+def test_update_form_title(client):
+    """Test updating a form's title."""
+    request_data = {
+        "message": "Update the title of the contact form to Contact Us",
+        "session_id": "test_update"
+    }
+    
+    response = client.post("/api/v1/chat", json=request_data)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert_changelog_response(data, ["forms"])
+    
+    changes = json.loads(data["response"])["changes"]
+    forms = changes["forms"]
+    
+    assert "update" in forms
+    assert len(forms["update"]) == 1
+    
+    updated = forms["update"][0]
+    assert updated["title"] == "Contact Us"
+    assert "id" in updated
+    assert not updated["id"].startswith("$")
+
+
+@pytest.mark.integration
+def test_vague_request_clarification(client):
+    """Test that vague requests trigger clarification."""
+    request_data = {
+        "message": "Add an option",
+        "session_id": "test_vague"
+    }
+    
+    response = client.post("/api/v1/chat", json=request_data)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert_clarification_response(data)
+    
+    clarification = json.loads(data["response"])["clarification"]
+    assert "form" in clarification.lower() or "field" in clarification.lower()
+
+
+@pytest.mark.integration
+def test_ambiguous_request_clarification(client):
+    """Test that ambiguous requests trigger clarification."""
+    request_data = {
+        "message": "Make some changes",
+        "session_id": "test_ambiguous"
+    }
+    
+    response = client.post("/api/v1/chat", json=request_data)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert_clarification_response(data)
+
+
+@pytest.mark.integration
+def test_complex_multi_table_operation(client):
+    """Test a complex operation involving multiple tables and operations."""
+    request_data = {
+        "message": "For the travel form: add Barcelona and Rome options to destination, remove London, and change the form title to International Travel Request",
+        "session_id": "test_complex"
+    }
+    
+    response = client.post("/api/v1/chat", json=request_data)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert_changelog_response(data, ["option_items", "forms"])
+    
+    changes = json.loads(data["response"])["changes"]
+    
+    assert "insert" in changes["option_items"]
+    assert "delete" in changes["option_items"]
+    assert len(changes["option_items"]["insert"]) == 2
+    assert len(changes["option_items"]["delete"]) == 1
+    
+    option_values = [opt["value"] for opt in changes["option_items"]["insert"]]
+    assert "Barcelona" in option_values
+    assert "Rome" in option_values
+    
+    assert "update" in changes["forms"]
+    assert changes["forms"]["update"][0]["title"] == "International Travel Request"
+
+
+@pytest.mark.integration
+def test_trace_endpoint(client):
+    """Test that trace endpoint returns trace information for a session."""
+    chat_request = {
+        "message": "What forms are in the database?",
+        "session_id": "test_trace_session"
+    }
+    
+    chat_response = client.post("/api/v1/chat", json=chat_request)
+    assert chat_response.status_code == 200
+    
+    trace_response = client.get("/api/v1/traces/test_trace_session")
+    assert trace_response.status_code == 200
+    
+    trace_data = trace_response.json()
+    assert trace_data["session_id"] == "test_trace_session"
+    assert "trace_id" in trace_data
+    assert "trace_url" in trace_data
+    assert "platform.openai.com" in trace_data["trace_url"]
+
+
+@pytest.mark.integration
+def test_trace_endpoint_not_found(client):
+    """Test that trace endpoint returns 404 for non-existent session."""
+    response = client.get("/api/v1/traces/nonexistent_session_xyz")
+    
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+
+@pytest.mark.integration
+def test_multi_turn_conversation(client):
+    """Test multi-turn conversation with follow-up questions."""
+    session_id = "test_multi_turn"
+    
+    first_request = {
+        "message": "I want to add a field",
+        "session_id": session_id
+    }
+    
+    first_response = client.post("/api/v1/chat", json=first_request)
+    assert first_response.status_code == 200
+    
+    first_data = first_response.json()
+    assert_clarification_response(first_data)
+    
+    second_request = {
+        "message": "Add an email field to the contact form",
+        "session_id": session_id
+    }
+    
+    second_response = client.post("/api/v1/chat", json=second_request)
+    assert second_response.status_code == 200
+    
+    second_data = second_response.json()
+    response_json = json.loads(second_data["response"])
+    
+    assert response_json["type"] in ["changelog", "clarification"]
