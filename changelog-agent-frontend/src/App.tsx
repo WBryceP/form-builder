@@ -136,11 +136,30 @@ function App() {
           isLoading={isLoading}
         />
       ) : (
-        <div className="flex-1 flex items-center justify-center bg-gray-50">
-          <div className="text-center text-gray-500">
-            <div className="text-5xl mb-4">🤖</div>
-            <div className="text-xl font-semibold mb-2">Form Builder Agent</div>
-            <div className="text-sm">Create a new conversation or select an existing one</div>
+        <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50">
+          <div className="text-center text-gray-600 max-w-md">
+            <div className="text-8xl mb-8 animate-pulse">🤖</div>
+            <div className="text-3xl font-bold mb-4 text-gray-800">Form Builder Agent</div>
+            <div className="text-base text-gray-600 mb-8 leading-relaxed">
+              Create a new conversation or select an existing one to start chatting with the agent.
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-lg border-2 border-gray-200">
+              <div className="text-sm text-gray-500 mb-3 font-semibold">Quick Tips:</div>
+              <div className="text-xs text-left space-y-2 text-gray-700">
+                <div className="flex items-start">
+                  <span className="text-blue-600 mr-2">•</span>
+                  <span>Click "+ New Conversation" to start</span>
+                </div>
+                <div className="flex items-start">
+                  <span className="text-blue-600 mr-2">•</span>
+                  <span>Ask about forms, fields, or database changes</span>
+                </div>
+                <div className="flex items-start">
+                  <span className="text-blue-600 mr-2">•</span>
+                  <span>View tool calls to see what the agent did</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
