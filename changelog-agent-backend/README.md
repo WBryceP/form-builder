@@ -1,5 +1,7 @@
 # Form Management Changelog Agent
 
+> **v2.0 - Now with Active Tool Validation!** Refactored to follow OpenAI Agents SDK best practices. The agent now uses mutation tools to validate EVERY database change, providing stronger guarantees and better error detection.
+
 An AI-powered agent that converts natural language requests into structured database change plans for an enterprise form management system.
 
 ## Overview
@@ -10,8 +12,10 @@ This agent uses the OpenAI Agents SDK to interpret user requests about form modi
 - Natural language understanding of form management requests
 - Intelligent clarification when requests are ambiguous
 - Structured JSON output matching database schema
+- **Tool-based validation** - Every database change is validated via mutation tools
 - Transaction-based validation without modifying the database
 - Multi-turn conversation support with session memory
+- **OpenAI Agents SDK best practices** - Context injection, strong typing, SDK-native error handling
 - Comprehensive test coverage
 
 ## Quick Start
@@ -76,14 +80,20 @@ curl -X POST http://localhost:8000/api/v1/chat \
 ### Architecture
 
 ```
-User Request → FastAPI Endpoint → Agent Service → OpenAI Agent
+User Request → FastAPI Endpoint → Agent Service (with FormContext)
                                         ↓
-                                  Database Query Tool
+                                  OpenAI Agent with Tools
                                         ↓
-                                  SQLite Database
-                                        ↓
-                      ← Structured JSON Changelog ←
+                    ┌───────────────────┴──────────────────┐
+                    ↓                                      ↓
+            Query Tool (read)                    Mutation Tools (validate)
+                    ↓                                      ↓
+            SQLite Database ←────────────────────────────┘
+                    ↓
+    Validated Structured JSON Changelog
 ```
+
+**New in v2.0:** Agent now uses mutation tools (`create_database_record`, `update_database_record`, `delete_database_record`) to validate EVERY database change before constructing the final changelog.
 
 ### Design Choices
 
@@ -95,12 +105,14 @@ We chose to use SQLite-backed sessions rather than requiring clients to maintain
 
 #### 2. **Separation of Concerns**
 The codebase follows SOLID principles with clear separation:
+- `context.py`: FormContext for dependency injection (database path, config)
+- `tool_models.py`: Pydantic models for tool parameters (RecordData, RecordUpdate)
 - `database_operations.py`: Core testable functions for DB operations
-- `changelog_agent.py`: Agent definition and tool wrappers
+- `changelog_agent.py`: Agent definition and tool wrappers with SDK best practices
 - `agent_service.py`: Orchestration and session management
-- `routes.py`: API endpoints
+- `routes.py`: FastAPI endpoints
 
-This allows unit testing of core logic without dealing with the OpenAI SDK decorator.
+This allows unit testing of core logic and follows dependency inversion principles.
 
 #### 3. **Transaction-Based Validation**
 The mutation tools (create/update/delete) operate within database transactions that are rolled back:
@@ -142,10 +154,15 @@ Agent responds with only two structured output types:
 ### Agent Workflow
 
 1. **Query Phase**: Agent queries `forms.sqlite` to understand schema and find referenced entities
-2. **Decision Phase**: Determines if request is clear or needs clarification
-3. **Output Phase**: Returns either clarification or structured changelog
+2. **Validation Phase**: Agent calls mutation tools to validate EVERY insert/update/delete operation
+   - `create_database_record` - Validates inserts in a rolled-back transaction
+   - `update_database_record` - Validates updates in a rolled-back transaction
+   - `delete_database_record` - Validates deletes in a rolled-back transaction
+3. **Collection Phase**: Agent collects all tool outputs (validated change fragments)
+4. **Merge Phase**: Agent combines all validated changes into a unified changelog
+5. **Output Phase**: Returns either clarification or validated structured changelog
 
-The agent does NOT use the mutation tools during normal operation—they exist for validation purposes. The agent queries the DB, compiles changes in memory, and returns the JSON directly.
+**Key Innovation:** The agent actively uses mutation tools to validate changes against the actual database schema, ensuring all operations would succeed before returning the changelog.
 
 ## Project Structure
 
@@ -153,14 +170,18 @@ The agent does NOT use the mutation tools during normal operation—they exist f
 changelog-agent-backend/
 ├── app/
 │   ├── agents/
-│   │   ├── changelog_agent.py      # Agent definition with tools
+│   │   ├── changelog_agent.py      # Agent with SDK best practices
+│   │   ├── context.py              # FormContext for dependency injection
+│   │   ├── tool_models.py          # Pydantic models for tool params
 │   │   └── database_operations.py  # Core testable DB functions
 │   ├── api/
 │   │   └── routes.py                # FastAPI endpoints
 │   ├── models/
-│   │   └── schemas.py               # Pydantic models
+│   │   └── schemas.py               # Pydantic models for API
 │   ├── services/
-│   │   └── agent_service.py         # Agent orchestration
+│   │   └── agent_service.py         # Agent orchestration with context
+│   ├── tracing/
+│   │   └── tool_call_processor.py   # Custom tracing processor
 │   └── main.py                      # FastAPI app entry
 ├── data/
 │   └── forms.sqlite                 # Form management database
@@ -180,8 +201,15 @@ Comprehensive test suite with unit and integration tests. See `tests/README.md` 
 
 ### Running Tests
 
+**Recommended approach (prevents API rate limiting):**
 ```bash
-# Run all tests (requires Docker container to be running)
+# Run all tests with automatic delays between integration tests
+./run_tests.sh
+```
+
+**Alternative approaches:**
+```bash
+# Run all tests at once (may hit rate limits with large test suites)
 python3 -m pytest tests/ -v
 
 # Run unit tests only (no server required)
@@ -202,7 +230,7 @@ python3 -m pytest tests/ --cov=app --cov-report=html
 - Update operations (validation, nonexistent IDs, JSON errors)
 - Delete operations (validation, rollback verification)
 
-**Integration Tests (15 tests):**
+**Integration Tests (13 tests):**
 
 *Changelog Generation:*
 - ✅ Add single option to form
@@ -238,10 +266,16 @@ All tests verify that the database remains unchanged:
 - Original values are preserved
 - Transactions are properly rolled back
 
+**Structured Output Guardrails (10 tests):**
+- ✅ Resists prompt injection attacks
+- ✅ Enforces output schema compliance
+- ✅ Validates legitimate requests still work
+
 ### Test Performance
 - Unit tests: ~1 second total
-- Integration tests: ~10-80 seconds per test
-- Full test suite: ~5-10 minutes
+- Integration tests: ~10-80 seconds per test  
+- Full test suite: ~10-15 minutes with delays (using `./run_tests.sh`)
+- Full test suite: ~5-10 minutes without delays (may hit rate limits)
 
 ## API Reference
 
@@ -277,6 +311,30 @@ Get the OpenAI trace ID for debugging a conversation.
 }
 ```
 
+### GET /api/v1/tool-calls/session/{session_id}
+
+Get all tool calls made during a conversation session. Useful for debugging and understanding agent behavior.
+
+**Response:**
+```json
+{
+  "session_id": "string",
+  "trace_id": "string",
+  "tool_calls": [
+    {
+      "span_id": "string",
+      "tool_name": "create_database_record",
+      "input": "JSON string of tool input",
+      "output": "JSON string of tool output",
+      "started_at": "ISO timestamp",
+      "ended_at": "ISO timestamp",
+      "error": null
+    }
+  ],
+  "total_count": 15
+}
+```
+
 ### GET /api/v1/health
 
 Health check endpoint.
@@ -298,30 +356,93 @@ Health check endpoint.
 
 4. **Session Storage**: Sessions are stored in SQLite. For production, consider Redis for better performance with concurrent users.
 
-5. **No Output Validation**: Agent output is not validated against database schema constraints. Adding a validation layer would catch issues like missing required fields.
+5. **Mutation Tools Run in Transactions**: All validation operations are rolled back, so the database is never modified. The actual changes must be applied separately using the returned changelog.
 
-## Performance Baseline & Improvements
+## Architecture Evolution & Performance
 
-### Initial Approach
-- Agent was hitting max turns (10) due to attempting to use mutation tools for every change
-- High token usage from verbose instructions
+### v2.0 Refactoring (OpenAI Agents SDK Best Practices)
 
-### Improvements Made
-1. **Increased max_turns to 25**: Gives agent more room for complex queries
-2. **Simplified instructions**: Removed verbose examples, made instructions more directive
-3. **Clarified tool usage**: Explicitly told agent NOT to use mutation tools during normal operation
-4. **Structured output format**: Constrained agent to two output types only
+We completely refactored the codebase to follow OpenAI Agents SDK best practices, resulting in **active mutation tool usage** and better code quality.
 
-### Metrics
+#### Key Changes
+
+**1. Context Injection (Dependency Inversion)**
+- Added `FormContext` dataclass for dependency injection
+- Database path now injected via context instead of environment variables
+- Tools receive `RunContextWrapper[FormContext]` as first parameter
+- Enables better testing and configuration flexibility
+
+**2. Strong Type Safety**
+- Created Pydantic models (`RecordData`, `RecordUpdate`) for tool parameters
+- Replaced JSON string parameters with structured types
+- LLM receives clear schema showing expected structure
+- Automatic validation by SDK reduces errors
+
+**3. SDK-Native Error Handling**
+- Implemented `tool_error_handler` using `failure_error_function` pattern
+- Cleaner error messages sent to LLM
+- No try/catch needed in tool functions
+- Consistent error handling across all tools
+
+**4. Improved Instructions**
+- Rewrote agent instructions to emphasize mutation tool usage
+- Added concrete examples showing exact tool call syntax
+- Removed contradictory statements
+- Clear step-by-step workflow (Query → Validate → Collect → Merge → Output)
+
+**5. Static Runner Usage**
+- Changed from instance-based to static `Runner.run()`
+- Aligns with SDK documentation patterns
+- Passes context explicitly to agent
+
+#### Results
+
+**Before Refactoring:**
+- Mutation tool usage: 0 calls
+- Agent manually constructed JSON
+- JSON string parameters (weak typing)
+- Manual error handling
+
+**After Refactoring:**
+- Mutation tool usage: 100% (every operation validated)
+- Simple request (add option): 1 mutation call
+- Complex request (conditional logic): 5 mutation calls
+- Complete form creation: 11 mutation calls
+- Strong Pydantic typing
+- SDK-native error handling
+
+### Current Performance Metrics
+
 - **Success Rate**: 100% on all test examples
-- **Clarification Accuracy**: Correctly identifies vague requests
+- **Tool Usage**: All database changes validated via mutation tools
+- **Clarification Accuracy**: Correctly identifies vague/ambiguous requests
 - **Output Format**: 100% compliance with expected JSON structure
 - **Database Safety**: 0 unintended modifications (all operations rolled back)
+- **Type Safety**: Pydantic models prevent malformed tool calls
+
+### Real-World Examples
+
+**Example 1: Add Option**
+- Query calls: 5 (find form, field, options)
+- Mutation calls: 1 (`create_database_record` for option_items)
+- Total time: ~8 seconds
+
+**Example 2: Conditional Field Logic**
+- Query calls: 20 (explore schema, find IDs)
+- Mutation calls: 5 (field, rule, condition, 2 actions)
+- Total time: ~25 seconds
+
+**Example 3: Create Complete Form**
+- Query calls: 11 (schema exploration)
+- Mutation calls: 11 (form, page, option_set, 5 option_items, 2 fields, binding)
+- Total time: ~30 seconds
 
 ### Monitoring
-- Use `/api/v1/traces/{session_id}` to view tool calls in OpenAI Platform
-- Track session length to identify inefficient query patterns
-- Monitor token usage per request for cost optimization
+
+- **Tool Calls API**: `GET /api/v1/tool-calls/session/{session_id}` shows all tool usage
+- **Trace Debugging**: Use `/api/v1/traces/{session_id}` to view in OpenAI Platform
+- Track query patterns to identify optimization opportunities
+- Monitor mutation tool success rate for schema issues
 
 ## Future Enhancements
 

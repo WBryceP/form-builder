@@ -3,29 +3,26 @@ import os
 import json
 
 
-async def query_database(sql_query: str) -> str:
+async def query_database(sql_query: str, db_path: str) -> str:
     """
     Execute a SELECT query against the forms database.
     
     Args:
         sql_query: A SELECT SQL query to execute
+        db_path: Path to the SQLite database file
         
     Returns:
         JSON string containing query results
     """
-    db_path = os.getenv("DATABASE_PATH", "/app/data/forms.sqlite")
-    try:
-        async with aiosqlite.connect(db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(sql_query) as cursor:
-                rows = await cursor.fetchall()
-                results = [dict(row) for row in rows]
-                return str(results)
-    except Exception as e:
-        return f"Error querying database: {str(e)}"
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(sql_query) as cursor:
+            rows = await cursor.fetchall()
+            results = [dict(row) for row in rows]
+            return json.dumps(results, indent=2)
 
 
-async def create_record(table_name: str, record_data: str) -> str:
+async def create_record(table_name: str, record_data: str, db_path: str) -> str:
     """
     Test creating a new record in the database within a transaction.
     The transaction is rolled back, so no actual changes are made.
@@ -33,11 +30,11 @@ async def create_record(table_name: str, record_data: str) -> str:
     Args:
         table_name: The name of the table to insert into
         record_data: JSON string of column names to values for the new record
+        db_path: Path to the SQLite database file
         
     Returns:
         JSON string containing the insert change plan
     """
-    db_path = os.getenv("DATABASE_PATH", "/app/data/forms.sqlite")
     
     try:
         record_dict = json.loads(record_data)
@@ -74,7 +71,7 @@ async def create_record(table_name: str, record_data: str) -> str:
         return f"Error connecting to database: {str(e)}"
 
 
-async def update_record(table_name: str, record_id: str, updates: str) -> str:
+async def update_record(table_name: str, record_id: str, updates: str, db_path: str) -> str:
     """
     Test updating an existing record in the database within a transaction.
     The transaction is rolled back, so no actual changes are made.
@@ -83,11 +80,11 @@ async def update_record(table_name: str, record_id: str, updates: str) -> str:
         table_name: The name of the table to update
         record_id: The exact existing ID of the record to update
         updates: JSON string of column names to new values
+        db_path: Path to the SQLite database file
         
     Returns:
         JSON string containing the update change plan
     """
-    db_path = os.getenv("DATABASE_PATH", "/app/data/forms.sqlite")
     
     try:
         updates_dict = json.loads(updates)
@@ -134,7 +131,7 @@ async def update_record(table_name: str, record_id: str, updates: str) -> str:
         return f"Error connecting to database: {str(e)}"
 
 
-async def delete_record(table_name: str, record_id: str) -> str:
+async def delete_record(table_name: str, record_id: str, db_path: str) -> str:
     """
     Test deleting a record from the database within a transaction.
     The transaction is rolled back, so no actual changes are made.
@@ -142,11 +139,11 @@ async def delete_record(table_name: str, record_id: str) -> str:
     Args:
         table_name: The name of the table to delete from
         record_id: The exact existing ID of the record to delete
+        db_path: Path to the SQLite database file
         
     Returns:
         JSON string containing the delete change plan
     """
-    db_path = os.getenv("DATABASE_PATH", "/app/data/forms.sqlite")
     
     try:
         async with aiosqlite.connect(db_path) as db:

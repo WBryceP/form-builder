@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.models.schemas import ChatRequest, ChatResponse, TraceResponse
+from app.models.schemas import ChatRequest, ChatResponse, TraceResponse, ToolCallsResponse, ToolCallData
 from app.services.agent_service import AgentService
 
 router = APIRouter()
@@ -46,4 +46,53 @@ async def get_trace(session_id: str):
         session_id=session_id,
         trace_id=trace_id,
         trace_url=f"https://platform.openai.com/traces/trace?trace_id={trace_id}"
+    )
+
+
+@router.get("/tool-calls/session/{session_id}", response_model=ToolCallsResponse)
+async def get_tool_calls_by_session(session_id: str):
+    """
+    Get all tool calls for a conversation session.
+    This does not require OpenAI platform access.
+    """
+    trace_id = agent_service.get_trace_id(session_id)
+    
+    if not trace_id:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No trace found for session_id: {session_id}"
+        )
+    
+    tool_calls_data = agent_service.get_tool_calls_by_session(session_id)
+    tool_calls = [ToolCallData(**tc) for tc in tool_calls_data]
+    
+    return ToolCallsResponse(
+        session_id=session_id,
+        trace_id=trace_id,
+        tool_calls=tool_calls,
+        total_count=len(tool_calls)
+    )
+
+
+@router.get("/tool-calls/trace/{trace_id}", response_model=ToolCallsResponse)
+async def get_tool_calls_by_trace(trace_id: str):
+    """
+    Get all tool calls for a specific trace ID.
+    This does not require OpenAI platform access.
+    """
+    tool_calls_data = agent_service.get_tool_calls_by_trace(trace_id)
+    
+    if not tool_calls_data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No tool calls found for trace_id: {trace_id}"
+        )
+    
+    tool_calls = [ToolCallData(**tc) for tc in tool_calls_data]
+    
+    return ToolCallsResponse(
+        session_id=None,
+        trace_id=trace_id,
+        tool_calls=tool_calls,
+        total_count=len(tool_calls)
     )

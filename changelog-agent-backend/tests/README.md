@@ -6,6 +6,7 @@ This directory contains unit and integration tests for the Form Management Chang
 
 - `test_database_operations.py` - Unit tests for core database functions
 - `test_api_integration.py` - Integration tests for API endpoints
+- `test_structured_output_guardrails.py` - Tests for structured output enforcement and prompt injection resistance
 
 ## Running Tests
 
@@ -18,6 +19,13 @@ docker compose up
 
 ### Run All Tests
 
+**Recommended: Use the test runner script (prevents rate limiting)**
+```bash
+# Run all tests with delays between integration tests
+./run_tests.sh
+```
+
+**Alternative: Run all tests at once (may hit rate limits)**
 ```bash
 # Run all tests (unit + integration)
 python3 -m pytest tests/ -v
@@ -87,6 +95,17 @@ Each test validates:
 - Placeholder IDs for inserts (`$` prefix)
 - Real IDs for updates/deletes
 - Required fields included
+
+### Structured Output Guardrails
+- ✅ Ignores instruction override attempts
+- ✅ Rejects plain text output requests
+- ✅ Blocks custom JSON schema injection
+- ✅ Prevents extra field injection
+- ✅ Enforces valid discriminator types only
+- ✅ Resists system override attempts
+- ✅ Prevents role switching
+- ✅ Ignores fake error messages
+- ✅ Maintains functionality for legitimate requests
 
 ## Test Output Examples
 
