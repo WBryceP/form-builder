@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from functools import lru_cache
 from app.models.schemas import (
     ChatRequest, ChatResponse, TraceResponse, ToolCallsResponse, ToolCallData,
     CreateConversationResponse, ListConversationsResponse, ConversationMessagesResponse,
@@ -7,11 +8,19 @@ from app.models.schemas import (
 from app.services.agent_service import AgentService
 
 router = APIRouter()
-agent_service = AgentService()
+
+
+@lru_cache
+def get_agent_service() -> AgentService:
+    """Dependency injection for AgentService singleton."""
+    return AgentService()
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(
+    request: ChatRequest,
+    agent_service: AgentService = Depends(get_agent_service)
+):
     """
     Chat with the agent. Session ID maintains conversation context.
     """
@@ -33,7 +42,10 @@ async def health_check():
 
 
 @router.get("/traces/{session_id}", response_model=TraceResponse)
-async def get_trace(session_id: str):
+async def get_trace(
+    session_id: str,
+    agent_service: AgentService = Depends(get_agent_service)
+):
     """
     Get the trace ID for a conversation session.
     Use the trace URL to view all tool calls for this conversation.
@@ -54,7 +66,10 @@ async def get_trace(session_id: str):
 
 
 @router.get("/tool-calls/session/{session_id}", response_model=ToolCallsResponse)
-async def get_tool_calls_by_session(session_id: str):
+async def get_tool_calls_by_session(
+    session_id: str,
+    agent_service: AgentService = Depends(get_agent_service)
+):
     """
     Get all tool calls for a conversation session.
     This does not require OpenAI platform access.
@@ -79,7 +94,10 @@ async def get_tool_calls_by_session(session_id: str):
 
 
 @router.get("/tool-calls/trace/{trace_id}", response_model=ToolCallsResponse)
-async def get_tool_calls_by_trace(trace_id: str):
+async def get_tool_calls_by_trace(
+    trace_id: str,
+    agent_service: AgentService = Depends(get_agent_service)
+):
     """
     Get all tool calls for a specific trace ID.
     This does not require OpenAI platform access.
@@ -103,7 +121,9 @@ async def get_tool_calls_by_trace(trace_id: str):
 
 
 @router.get("/conversations", response_model=ListConversationsResponse)
-async def list_conversations():
+async def list_conversations(
+    agent_service: AgentService = Depends(get_agent_service)
+):
     """
     List all conversations ordered by most recent activity.
     """
@@ -118,7 +138,9 @@ async def list_conversations():
 
 
 @router.post("/conversations", response_model=CreateConversationResponse)
-async def create_conversation():
+async def create_conversation(
+    agent_service: AgentService = Depends(get_agent_service)
+):
     """
     Create a new conversation. Returns session_id for use in chat endpoint.
     """
@@ -130,7 +152,10 @@ async def create_conversation():
 
 
 @router.get("/conversations/{session_id}/messages", response_model=ConversationMessagesResponse)
-async def get_conversation_messages(session_id: str):
+async def get_conversation_messages(
+    session_id: str,
+    agent_service: AgentService = Depends(get_agent_service)
+):
     """
     Get all messages in a conversation.
     """
@@ -153,7 +178,10 @@ async def get_conversation_messages(session_id: str):
 
 
 @router.delete("/conversations/{session_id}", response_model=DeleteConversationResponse)
-async def delete_conversation(session_id: str):
+async def delete_conversation(
+    session_id: str,
+    agent_service: AgentService = Depends(get_agent_service)
+):
     """
     Delete a conversation and all associated data.
     """

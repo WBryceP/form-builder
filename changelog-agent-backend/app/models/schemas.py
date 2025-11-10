@@ -1,13 +1,30 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Union, Literal, Any
+import re
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., description="User's message")
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=10000,
+        description="User's message"
+    )
     session_id: Optional[str] = Field(
         default="default",
-        description="Session ID to maintain conversation context"
+        description="Session ID to maintain conversation context. Must be alphanumeric with hyphens/underscores, 1-64 characters."
     )
+    
+    @field_validator('session_id')
+    @classmethod
+    def validate_session_id(cls, v: Optional[str]) -> str:
+        if v is None:
+            return "default"
+        if not re.match(r'^[a-zA-Z0-9_-]{1,64}$', v):
+            raise ValueError(
+                "Session ID must be 1-64 alphanumeric characters, hyphens, or underscores"
+            )
+        return v
 
 
 class ChatResponse(BaseModel):

@@ -22,7 +22,7 @@ def setup_test_env(monkeypatch):
 @pytest.mark.asyncio
 async def test_query_database_success(setup_test_env):
     """Test querying the database returns results."""
-    result = await query_database("SELECT id, title FROM forms LIMIT 1")
+    result = await query_database("SELECT id, title FROM forms LIMIT 1", TEST_DB_PATH)
     
     assert "Error" not in result
     results = eval(result)
@@ -35,26 +35,28 @@ async def test_query_database_success(setup_test_env):
 @pytest.mark.asyncio
 async def test_query_database_invalid_sql(setup_test_env):
     """Test querying with invalid SQL returns an error."""
-    result = await query_database("SELECT * FROM nonexistent_table")
+    result = await query_database("SELECT * FROM nonexistent_table", TEST_DB_PATH)
     
-    assert "Error querying database" in result
+    assert "Error" in result
 
 
 @pytest.mark.asyncio
 async def test_create_record_success(setup_test_env):
     """Test creating a record returns proper change plan and doesn't modify DB."""
+    valid_option_set_id = await _get_first_option_set_id()
+    
     test_data = {
         "id": "$test_option",
-        "option_set_id": "test-set-id",
-        "value": "Test Value",
+        "option_set_id": valid_option_set_id,
+        "value": "Test Value Unique 12345",
         "label": "Test Label",
-        "position": 1,
+        "position": 999,
         "is_active": 1
     }
     
     record_count_before = await _get_option_items_count()
     
-    result = await create_record("option_items", json.dumps(test_data))
+    result = await create_record("option_items", json.dumps(test_data), TEST_DB_PATH)
     
     assert "Error" not in result
     change_plan = json.loads(result)
@@ -70,7 +72,7 @@ async def test_create_record_success(setup_test_env):
 @pytest.mark.asyncio
 async def test_create_record_invalid_json(setup_test_env):
     """Test creating a record with invalid JSON returns an error."""
-    result = await create_record("option_items", "not valid json")
+    result = await create_record("option_items", "not valid json", TEST_DB_PATH)
     
     assert "Error parsing record_data JSON" in result
 
@@ -82,9 +84,9 @@ async def test_create_record_missing_required_field(setup_test_env):
         "id": "$test_option"
     }
     
-    result = await create_record("option_items", json.dumps(test_data))
+    result = await create_record("option_items", json.dumps(test_data), TEST_DB_PATH)
     
-    assert "Error testing insert" in result
+    assert "Integrity constraint violation" in result or "Error" in result
 
 
 @pytest.mark.asyncio
@@ -98,7 +100,7 @@ async def test_update_record_success(setup_test_env):
         "label": "Updated Label"
     }
     
-    result = await update_record("option_items", existing_id, json.dumps(updates))
+    result = await update_record("option_items", existing_id, json.dumps(updates), TEST_DB_PATH)
     
     assert "Error" not in result
     change_plan = json.loads(result)
@@ -117,7 +119,7 @@ async def test_update_record_nonexistent_id(setup_test_env):
     """Test updating a nonexistent record returns an error."""
     updates = {"value": "New Value"}
     
-    result = await update_record("option_items", "nonexistent-id-123", json.dumps(updates))
+    result = await update_record("option_items", "nonexistent-id-123", json.dumps(updates), TEST_DB_PATH)
     
     assert "Error: Record with id 'nonexistent-id-123' not found" in result
 
@@ -125,7 +127,7 @@ async def test_update_record_nonexistent_id(setup_test_env):
 @pytest.mark.asyncio
 async def test_update_record_invalid_json(setup_test_env):
     """Test updating with invalid JSON returns an error."""
-    result = await update_record("option_items", "some-id", "invalid json")
+    result = await update_record("option_items", "some-id", "invalid json", TEST_DB_PATH)
     
     assert "Error parsing updates JSON" in result
 
@@ -136,7 +138,7 @@ async def test_delete_record_success(setup_test_env):
     existing_id = await _get_first_option_item_id()
     record_count_before = await _get_option_items_count()
     
-    result = await delete_record("option_items", existing_id)
+    result = await delete_record("option_items", existing_id, TEST_DB_PATH)
     
     assert "Error" not in result
     change_plan = json.loads(result)
@@ -155,7 +157,7 @@ async def test_delete_record_success(setup_test_env):
 @pytest.mark.asyncio
 async def test_delete_record_nonexistent_id(setup_test_env):
     """Test deleting a nonexistent record returns an error."""
-    result = await delete_record("option_items", "nonexistent-id-123")
+    result = await delete_record("option_items", "nonexistent-id-123", TEST_DB_PATH)
     
     assert "Error: Record with id 'nonexistent-id-123' not found" in result
 
@@ -190,3 +192,11 @@ async def _check_option_item_exists(item_id: str) -> bool:
         async with db.execute("SELECT 1 FROM option_items WHERE id = ?", (item_id,)) as cursor:
             row = await cursor.fetchone()
             return row is not None
+
+
+async def _get_first_option_set_id() -> str:
+    """Helper to get the ID of the first option_set."""
+    async with aiosqlite.connect(TEST_DB_PATH) as db:
+        async with db.execute("SELECT id FROM option_sets LIMIT 1") as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else None

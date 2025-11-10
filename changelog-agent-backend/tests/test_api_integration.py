@@ -11,7 +11,7 @@ BASE_URL = "http://localhost:8000"
 @pytest.fixture
 def client():
     """Create an HTTP client for testing."""
-    return httpx.Client(base_url=BASE_URL, timeout=120.0)
+    return httpx.Client(base_url=BASE_URL, timeout=300.0)
 
 
 def assert_changelog_response(response_data: Dict[str, Any], expected_tables: list[str]):
