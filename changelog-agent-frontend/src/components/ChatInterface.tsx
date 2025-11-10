@@ -27,62 +27,66 @@ export function ChatInterface({ messages, toolCalls, onSendMessage, isLoading }:
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-gray-50">
-      <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-white to-gray-50">
-        {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-gray-500">
-            <div className="text-center max-w-md">
-              <div className="text-6xl mb-6">💬</div>
-              <div className="text-2xl font-semibold text-gray-700 mb-3">Start a conversation</div>
-              <div className="text-sm text-gray-600 leading-relaxed">
-                Ask about forms, fields, or database changes.
-                <br />
-                The agent will help you generate structured changelogs.
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            {messages.map((message, index) => (
-              <MessageBubble key={index} message={message} />
-            ))}
-            {isLoading && (
-              <div className="flex justify-start mb-4">
-                <div className="bg-gradient-to-r from-gray-100 to-gray-50 rounded-2xl px-5 py-3.5 shadow-sm border border-gray-200">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+    <main className="flex-1 min-w-0 flex flex-col min-h-0">
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 py-6">
+        <div className="max-w-4xl mx-auto w-full min-h-full">
+          {messages.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-gray-600">
+              <div className="text-center max-w-md px-4">
+                <div className="mb-6">
+                  <div className="mx-auto w-16 h-16 rounded-2xl bg-white/80 backdrop-blur-md ring-1 ring-slate-200 flex items-center justify-center text-3xl">
+                    💬
                   </div>
                 </div>
+                <div className="text-2xl font-semibold text-gray-800 mb-2">
+                  Start a conversation
+                </div>
+                <p className="text-sm leading-relaxed text-gray-600">
+                  Ask about forms, fields, or database changes.
+                  <br />The agent will help you generate structured changelogs.
+                </p>
               </div>
-            )}
-            <div ref={messagesEndRef} />
-          </>
-        )}
+            </div>
+          ) : (
+            <>
+              {messages.map((message, index) => (
+                <MessageBubble key={index} message={message} />
+              ))}
+              <div ref={messagesEndRef} />
+            </>
+          )}
+        </div>
       </div>
 
-      <ToolCallPanel toolCalls={toolCalls} />
+      <div className="max-w-4xl mx-auto w-full">
+        <ToolCallPanel toolCalls={toolCalls} />
+      </div>
 
-      <div className="border-t border-gray-300 p-6 bg-white shadow-lg">
-        <form onSubmit={handleSubmit} className="flex space-x-3 max-w-4xl mx-auto">
+      <div className="border-t border-slate-200 px-4 py-4 bg-white/80 backdrop-blur shadow-sm">
+        <form onSubmit={handleSubmit} className="flex gap-3 md:gap-4 max-w-4xl mx-auto">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
+            placeholder="Type your message…"
             disabled={isLoading}
-            className="flex-1 border-2 border-gray-300 rounded-xl px-5 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400 transition-all text-gray-900 placeholder-gray-400"
+            className="flex-1 rounded-xl px-4 py-3 text-sm md:text-[15px] text-gray-900 placeholder-gray-400 border border-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-slate-50 disabled:text-gray-400 transition"
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0"
+            className="px-5 md:px-6 py-3 text-sm md:text-[15px] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-semibold shadow-sm text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700"
           >
             Send
           </button>
         </form>
+        <div className="max-w-4xl mx-auto mt-2">
+          <p className="text-[11px] text-slate-500">
+            Press <kbd className="px-1 py-0.5 rounded border border-slate-300 bg-slate-50">Enter</kbd> to send •
+            <span className="hidden sm:inline"> Shift+Enter for newline</span>
+          </p>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -120,7 +120,7 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen">
+    <div className="h-screen w-full flex bg-gradient-to-br from-slate-50 via-white to-slate-50 text-gray-900">
       <ConversationList
         conversations={conversations}
         currentConversationId={currentConversationId}
@@ -136,32 +136,24 @@ function App() {
           isLoading={isLoading}
         />
       ) : (
-        <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50">
-          <div className="text-center text-gray-600 max-w-md">
-            <div className="text-8xl mb-8 animate-pulse">🤖</div>
-            <div className="text-3xl font-bold mb-4 text-gray-800">Form Builder Agent</div>
-            <div className="text-base text-gray-600 mb-8 leading-relaxed">
-              Create a new conversation or select an existing one to start chatting with the agent.
-            </div>
-            <div className="bg-white rounded-xl p-6 shadow-lg border-2 border-gray-200">
-              <div className="text-sm text-gray-500 mb-3 font-semibold">Quick Tips:</div>
-              <div className="text-xs text-left space-y-2 text-gray-700">
-                <div className="flex items-start">
-                  <span className="text-blue-600 mr-2">•</span>
-                  <span>Click "+ New Conversation" to start</span>
-                </div>
-                <div className="flex items-start">
-                  <span className="text-blue-600 mr-2">•</span>
-                  <span>Ask about forms, fields, or database changes</span>
-                </div>
-                <div className="flex items-start">
-                  <span className="text-blue-600 mr-2">•</span>
-                  <span>View tool calls to see what the agent did</span>
+        <main className="flex-1 min-w-0 flex flex-col min-h-0">
+          <div className="flex-1 flex items-center justify-center text-gray-600">
+            <div className="text-center max-w-md px-4">
+              <div className="mb-6">
+                <div className="mx-auto w-16 h-16 rounded-2xl bg-white/80 backdrop-blur-md ring-1 ring-slate-200 flex items-center justify-center text-3xl">
+                  💬
                 </div>
               </div>
+              <div className="text-2xl font-semibold text-gray-800 mb-2">
+                Start a conversation
+              </div>
+              <p className="text-sm leading-relaxed text-gray-600">
+                Ask about forms, fields, or database changes.
+                <br />The agent will help you generate structured changelogs.
+              </p>
             </div>
           </div>
-        </div>
+        </main>
       )}
     </div>
   );
