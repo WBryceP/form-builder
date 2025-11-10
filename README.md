@@ -17,21 +17,69 @@ This project consists of two main components:
 - Node.js 18+ (for frontend)
 - OpenAI API key
 
-### 1. Start Backend
+### 1. Setup Backend
+
+**Create `.env` file** in `changelog-agent-backend/` directory:
 
 ```bash
 cd changelog-agent-backend
+cat > .env << EOF
+OPENAI_API_KEY=your-openai-api-key-here
+ENVIRONMENT=development
+DATABASE_PATH=/app/data/forms.sqlite
+PORT=8000
+EOF
+```
+
+**Or manually create** `changelog-agent-backend/.env`:
+
+```env
+OPENAI_API_KEY=your-openai-api-key-here
+ENVIRONMENT=development
+DATABASE_PATH=/app/data/forms.sqlite
+PORT=8000
+```
+
+**Start the backend:**
+
+```bash
+# Build and start Docker container
 docker compose up --build
+
+# Or run in detached mode
+docker compose up -d --build
+
+# View logs
+docker compose logs -f
+
+# Stop the backend
+docker compose down
 ```
 
 Backend runs at `http://localhost:8000`
 
-### 2. Start Frontend
+Verify it's running:
+```bash
+curl http://localhost:8000/api/v1/health
+# Should return: {"status":"healthy"}
+```
+
+### 2. Setup Frontend
 
 ```bash
 cd changelog-agent-frontend
+
+# Install dependencies
 npm install
+
+# Start development server
 npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
 Frontend runs at `http://localhost:5173`
@@ -179,20 +227,36 @@ Add an option to the form
 
 ### Backend Tests
 
+The backend includes a comprehensive test suite with 30+ tests and a test runner script that prevents API rate limiting.
+
 ```bash
 cd changelog-agent-backend
 
-# Run all tests with delays (prevents rate limiting)
+# Run all tests with delays (prevents rate limiting) - RECOMMENDED
 ./run_tests.sh
 
 # Run specific test suite
 python3 -m pytest tests/test_validators_phase1.py -v
+
+# Run all tests at once (faster but may hit rate limits)
+python3 -m pytest tests/ -v
+
+# Run with coverage report
+python3 -m pytest tests/ --cov=app --cov-report=html
 ```
 
-**Test Coverage (30 tests):**
+**Test Script (`run_tests.sh`):**
+- Runs unit tests first (no delays)
+- Runs integration tests with 2-second delays
+- Automatically retries failed tests once (handles transient API issues)
+- Color-coded output with summary
+- Total runtime: ~10-15 minutes
+
+**Test Coverage (30+ tests):**
 - 10 unit tests (database operations)
+- 10 Phase 1 validation tests (security, constraints, SQL injection)
 - 16 integration tests (API endpoints, changelogs, clarifications)
-- 4 security tests (prompt injection, output validation)
+- 4 structured output guardrail tests (prompt injection resistance)
 
 ### Frontend Development
 
@@ -273,6 +337,110 @@ See `changelog-agent-backend/PHASE1_IMPLEMENTATION.md` for details.
 - Database migration script generation
 - Multi-database support (PostgreSQL, MySQL)
 
+## Troubleshooting
+
+### Backend Issues
+
+**"Connection refused" or "Cannot connect to Docker daemon"**
+```bash
+# Ensure Docker is running
+docker --version
+
+# Restart Docker Desktop (macOS)
+# Or restart Docker service (Linux)
+sudo systemctl restart docker
+```
+
+**"OPENAI_API_KEY not found"**
+```bash
+# Check .env file exists
+cat changelog-agent-backend/.env
+
+# Verify it contains your API key
+# Restart container after creating/updating .env
+cd changelog-agent-backend
+docker compose down
+docker compose up --build
+```
+
+**Backend not responding**
+```bash
+# Check container status
+docker compose ps
+
+# View logs
+cd changelog-agent-backend
+docker compose logs -f
+
+# Restart container
+docker compose restart
+
+# Or rebuild completely
+docker compose down
+docker compose up --build
+```
+
+**Database locked errors**
+```bash
+# Stop all containers
+cd changelog-agent-backend
+docker compose down
+
+# Remove WAL files
+rm data/sessions.db-wal data/sessions.db-shm
+
+# Restart
+docker compose up
+```
+
+### Frontend Issues
+
+**"Cannot find module" errors**
+```bash
+cd changelog-agent-frontend
+
+# Clear node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+```
+
+**Frontend can't connect to backend**
+```bash
+# Verify backend is running
+curl http://localhost:8000/api/v1/health
+
+# Check API base URL in frontend
+# Should be http://localhost:8000/api/v1
+```
+
+**Port 5173 already in use**
+```bash
+# Vite will automatically try the next available port
+# Or specify a different port
+npm run dev -- --port 3000
+```
+
+### Test Issues
+
+**Rate limiting errors during tests**
+```bash
+# Use the test runner script (includes delays)
+./run_tests.sh
+
+# Or increase delays between tests
+# Edit run_tests.sh and increase sleep duration
+```
+
+**"Insufficient quota" errors**
+```bash
+# Check your OpenAI API credits
+# Visit: https://platform.openai.com/usage
+
+# Consider switching to a cheaper model
+# Edit app/agents/changelog_agent.py
+# Change model from "gpt-5" to "gpt-4o-mini"
+```
+
 ## Development
 
 ### Backend Development
@@ -286,6 +454,9 @@ python3 -m pytest tests/ -v
 
 # Restart container
 docker compose restart
+
+# View logs
+docker compose logs -f
 ```
 
 ### Frontend Development
@@ -295,6 +466,12 @@ cd changelog-agent-frontend
 
 # Make changes to src/
 # Hot reload automatically updates browser
+
+# Type check
+npm run type-check
+
+# Lint
+npm run lint
 ```
 
 ### Code Style
