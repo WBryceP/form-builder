@@ -8,6 +8,15 @@ This project consists of two main components:
 - **Backend**: OpenAI Agents SDK-based API that interprets form management requests
 - **Frontend**: React + TypeScript chat interface for interacting with the agent
 
+How I approached the problem:
+I wanted to ensure that the agent had as many guard rails in place as possible. I started by seeing what an agent was capable of doing on its own and slowly started to add tools. These tools allowed the agent to verify that its actions weren't going to have unintended actions to the database. This whole process involved a lot of experimentation such as choosing different models and testing different staged approaches.
+
+Many decisions made were done so with the time constraint. If there was more time I would have allowed all tools to work within the same transaction and have more verification on db actions. However, I still wanted to address the dangers of giving the LLM access to the db. As such, transactions were used and checks are done on the db queries from the agent. There is also a strict output format for the agent.
+
+I tracked performance through a few different means. The first was seeing which tools the agent used and when. Initially the agent did not even use the db mutation tools and instead relied on its own ability to create the JSON output. This was unintended behavior so the tools were tweaked. I also tested varrying difficulties of questions. Its important to note that tests were performed numerous times to ensure stability in responses. The number of tool calls and progression were checked in addition to the similarity of the answers.
+
+For evaluating success, I tried a few difficult questions and tested them repeatedly to ensure that the answers were stable. I also checked if they made sense. With more time, I'd build an evaluation layer that takes that final JSON output and runs those operations against a copy of the db and checks if it worked, then have a smarter model evaluate the final form against the query.
+
 
 ## Quick Start
 
