@@ -8,7 +8,6 @@ This project consists of two main components:
 - **Backend**: OpenAI Agents SDK-based API that interprets form management requests
 - **Frontend**: React + TypeScript chat interface for interacting with the agent
 
-**Live Demo**: [https://forms-app-seven-theta.vercel.app/](https://forms-app-seven-theta.vercel.app/)
 
 ## Quick Start
 
@@ -225,30 +224,21 @@ Add an option to the form
 
 ### Backend Tests
 
-The backend includes a comprehensive test suite with 30+ tests and a test runner script that prevents API rate limiting.
-
 ```bash
 cd changelog-agent-backend
-
-# Run all tests with delays (prevents rate limiting) - RECOMMENDED
-./run_tests.sh
 
 # Run specific test suite
 python3 -m pytest tests/test_validators.py -v
 
-# Run all tests at once (faster but may hit rate limits)
+# Run all unit tests (no API calls)
+python3 -m pytest tests/test_database_operations.py tests/test_validators.py tests/test_column_validation.py tests/test_query_guardrails.py -v
+
+# Run all tests including integration tests (may hit rate limits)
 python3 -m pytest tests/ -v
 
 # Run with coverage report
 python3 -m pytest tests/ --cov=app --cov-report=html
 ```
-
-**Test Script (`run_tests.sh`):**
-- Runs unit tests first (no delays)
-- Runs integration tests with 2-second delays
-- Automatically retries failed tests once (handles transient API issues)
-- Color-coded output with summary
-- Total runtime: ~10-15 minutes
 
 **Test Coverage (30+ tests):**
 - 10 unit tests (database operations)
@@ -305,24 +295,20 @@ The agent manages 11 tables in `forms.sqlite`:
 ## Security Features
 
 1. **Table Name Whitelist**: SQL injection prevention via validated table names
-2. **Foreign Key Enforcement**: Prevents orphaned records
-3. **Transaction Rollback**: All validation operations rolled back automatically
-4. **Explicit Error Messages**: Clear constraint violation reporting
-5. **Structured Output Validation**: Prompt injection resistance
+2. **Transaction Rollback**: All validation operations rolled back automatically
+3. **Structured Output Validation**: Outputs will be consistent (either a clarification or the final result)
 
 ## Known Issues
 
 1. **Max Turns**: Agent uses 25 turns. Complex requests may hit limit (configurable)
 2. **Model Selection**: Configured for `gpt-5` - ensure API key has access
-3. **Large Database Performance**: Complex queries with hundreds of fields may be slow
-4. **Session Storage**: SQLite sessions - consider Redis for production scale
 
 ## Future Enhancements
 
 ### Short Term
-- Output schema validation before returning changelog
 - Query optimization and caching
 - Batch operations support
+- Multiple instances of an agent to reduce 500 errors
 
 ### Medium Term
 - WebSocket streaming for real-time updates
@@ -421,13 +407,16 @@ npm run dev -- --port 3000
 
 ### Test Issues
 
-**Rate limiting errors during tests**
+**Rate limiting errors during integration tests**
 ```bash
-# Use the test runner script (includes delays)
-./run_tests.sh
+# Run tests one at a time with delays between them
+python3 -m pytest tests/test_api_integration.py::test_add_single_option -v
+sleep 2
+python3 -m pytest tests/test_api_integration.py::test_create_conditional_logic -v
+# etc.
 
-# Or increase delays between tests
-# Edit run_tests.sh and increase sleep duration
+# Or run only unit tests (no API calls, no rate limits)
+python3 -m pytest tests/test_database_operations.py tests/test_validators.py tests/test_column_validation.py tests/test_query_guardrails.py -v
 ```
 
 **"Insufficient quota" errors**
@@ -472,28 +461,3 @@ npm run type-check
 # Lint
 npm run lint
 ```
-
-### Code Style
-
-- **SOLID Principles**: Single responsibility, dependency injection
-- **One Class Per File**: Clear separation of concerns
-- **Minimal Comments**: Self-documenting code with clear variable names
-- **No Extra Features**: Only implement what's requested
-
-## Contributing
-
-When adding features:
-1. Write tests first (TDD approach)
-2. Follow existing code patterns
-3. Update relevant README sections
-4. Verify all tests pass before committing
-
-## License
-
-[Your License Here]
-
-## References
-
-- [OpenAI Agents SDK](https://github.com/openai/openai-agents-sdk)
-- [Sample Form App](https://forms-app-seven-theta.vercel.app/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
