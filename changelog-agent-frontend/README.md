@@ -91,5 +91,3 @@ src/
 - Delete conversations
 - Auto-scroll to latest message
 - Loading states and error handling
-
-See `README_PROJECT.md` for detailed architecture documentation.
