@@ -130,7 +130,7 @@ form-builder/
 │   │   ├── agents/                   # Agent logic and tools
 │   │   │   ├── changelog_agent.py    # Main agent definition
 │   │   │   ├── database_operations.py # Core DB functions
-│   │   │   ├── validators.py         # Phase 1 validation
+│   │   │   ├── validators.py         # Validation functions
 │   │   │   ├── context.py            # Dependency injection
 │   │   │   └── tool_models.py        # Pydantic models
 │   │   ├── api/                      # REST endpoints
@@ -140,17 +140,15 @@ form-builder/
 │   ├── data/
 │   │   ├── forms.sqlite              # Copied from root
 │   │   └── sessions.db               # Session storage
-│   ├── tests/                        # 30 comprehensive tests
-│   ├── INSTRUCTIONS.md               # Original requirements
-│   ├── PHASE1_IMPLEMENTATION.md      # Phase 1 security features
-│   └── README.md                     # Backend documentation
+│   └── tests/                        # 30+ comprehensive tests
 │
 └── changelog-agent-frontend/         # React TypeScript frontend
     ├── src/
     │   ├── components/               # React components
     │   ├── api/                      # Backend client
     │   └── types/                    # TypeScript definitions
-    └── README.md                     # Frontend documentation
+    ├── package.json
+    └── vite.config.ts
 ```
 
 ## Key Features
@@ -236,7 +234,7 @@ cd changelog-agent-backend
 ./run_tests.sh
 
 # Run specific test suite
-python3 -m pytest tests/test_validators_phase1.py -v
+python3 -m pytest tests/test_validators.py -v
 
 # Run all tests at once (faster but may hit rate limits)
 python3 -m pytest tests/ -v
@@ -254,8 +252,9 @@ python3 -m pytest tests/ --cov=app --cov-report=html
 
 **Test Coverage (30+ tests):**
 - 10 unit tests (database operations)
-- 10 Phase 1 validation tests (security, constraints, SQL injection)
-- 16 integration tests (API endpoints, changelogs, clarifications)
+- 7 validation tests (security, constraints, SQL injection)
+- 6 column validation tests
+- 9 query guardrail tests
 - 4 structured output guardrail tests (prompt injection resistance)
 
 ### Frontend Development
@@ -279,11 +278,14 @@ npm run preview
 
 - `POST /api/v1/conversations` - Create new conversation
 - `GET /api/v1/conversations` - List all conversations
+- `GET /api/v1/conversations/{session_id}/messages` - Get conversation messages
+- `DELETE /api/v1/conversations/{session_id}` - Delete conversation
 - `POST /api/v1/chat` - Send message to agent
 - `GET /api/v1/traces/{session_id}` - Get trace for debugging
 - `GET /api/v1/tool-calls/session/{session_id}` - View tool calls
+- `GET /api/v1/health` - Health check
 
-See `changelog-agent-backend/README.md` for complete API documentation.
+Visit `http://localhost:8000/docs` for interactive API documentation.
 
 ## Database Schema
 
@@ -300,16 +302,13 @@ The agent manages 11 tables in `forms.sqlite`:
 - `logic_actions` - What rules should do
 - `prefill_mappings` - Auto-populate field values
 
-## Security Features (Phase 1)
-
-**Implemented November 9, 2025**
+## Security Features
 
 1. **Table Name Whitelist**: SQL injection prevention via validated table names
-2. **Foreign Key Enforcement**: `PRAGMA foreign_keys = ON` prevents orphaned records
+2. **Foreign Key Enforcement**: Prevents orphaned records
 3. **Transaction Rollback**: All validation operations rolled back automatically
 4. **Explicit Error Messages**: Clear constraint violation reporting
-
-See `changelog-agent-backend/PHASE1_IMPLEMENTATION.md` for details.
+5. **Structured Output Validation**: Prompt injection resistance
 
 ## Known Issues
 
@@ -495,6 +494,6 @@ When adding features:
 
 ## References
 
-- [Original Requirements](changelog-agent-backend/INSTRUCTIONS.md)
 - [OpenAI Agents SDK](https://github.com/openai/openai-agents-sdk)
 - [Sample Form App](https://forms-app-seven-theta.vercel.app/)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)

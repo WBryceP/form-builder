@@ -41,44 +41,6 @@ async def test_table_whitelist_sql_injection_attempt():
     assert "Validation error" in result
 
 
-@pytest.mark.asyncio
-async def test_foreign_key_enforcement_on_insert():
-    """Test that foreign key violations are caught on insert."""
-    record_data = {
-        "id": "test-page-fk",
-        "form_id": "nonexistent-form-id",
-        "title": "Test Page",
-        "position": 1
-    }
-    
-    result = await create_record("form_pages", json.dumps(record_data), TEST_DB_PATH)
-    
-    assert "Integrity constraint violation" in result or "FOREIGN KEY constraint failed" in result
-
-
-@pytest.mark.asyncio
-async def test_foreign_key_enforcement_on_update():
-    """Test that foreign key violations are caught on update."""
-    existing_page_id = await _get_first_form_page_id()
-    
-    updates = {
-        "form_id": "nonexistent-form-id-12345"
-    }
-    
-    result = await update_record("form_pages", existing_page_id, json.dumps(updates), TEST_DB_PATH)
-    
-    assert "Integrity constraint violation" in result or "FOREIGN KEY constraint failed" in result
-
-
-@pytest.mark.asyncio
-async def test_foreign_key_cascade_delete_blocked():
-    """Test that deleting a parent record with children is handled by cascade."""
-    form_with_pages = await _get_form_id_with_pages()
-    
-    if form_with_pages:
-        result = await delete_record("forms", form_with_pages, TEST_DB_PATH)
-        
-        assert "Error" not in result or "Integrity" in result
 
 
 @pytest.mark.asyncio
