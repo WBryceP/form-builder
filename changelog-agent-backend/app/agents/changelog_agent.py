@@ -38,7 +38,7 @@ async def create_database_record(
     """
     Validate creating a new record in the database. This validates the insert in a transaction
     but does NOT modify the database (transaction is rolled back).
-    
+
     YOU MUST call this tool for EVERY record you want to insert to validate the operation.
 
     Args:
@@ -66,7 +66,7 @@ async def update_database_record(
     """
     Validate updating an existing record in the database. This validates the update in a
     transaction but does NOT modify the database (transaction is rolled back).
-    
+
     YOU MUST call this tool for EVERY record you want to update to validate the operation.
 
     Args:
@@ -94,7 +94,7 @@ async def delete_database_record(
     """
     Validate deleting a record from the database. This validates the delete in a transaction
     but does NOT modify the database (transaction is rolled back).
-    
+
     YOU MUST call this tool for EVERY record you want to delete to validate the operation.
 
     Args:
@@ -163,7 +163,9 @@ delete_database_record(
 )
 ```
 
-Each tool validates the operation and returns a JSON change plan fragment.
+Each tool validates the operation and returns a JSON change plan fragment. When calling the tools ensure that they strictly
+adhere to the user's request. You must justify every change and make sure it does not make assumptions beyond the request.
+If there is clarity needed, ask the user before proceeding with the clarification output format.
 
 ### Step 3: Collect Tool Outputs
 Gather all the JSON responses from your mutation tool calls.
